@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         احصائيات الردود - ستار تايمز وكووورة (نسخة متطورة)
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      2.0
 // @description  يجلب عدد الردود لكل عضوية من عدة مواضيع وتجميعها في Excel. دعم ستايل أسود، اختصارات الإدخال، وأيقونة عائمة.
 // @match        https://www.startimes.com/*
 // @match        https://forum.kooora.com/*
