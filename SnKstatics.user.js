@@ -12,7 +12,6 @@
 // @require      https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js
 // ==/UserScript==
 
-
 (function () {
     'use strict';
 
@@ -20,7 +19,6 @@
     const savedVisible = localStorage.getItem("replyTool_visible") !== "false";
     const savedCombine = localStorage.getItem("replyTool_combine") !== "false";
 
-    // ===== الصندوق الرئيسي =====
     const box = document.createElement('div');
     box.id = "replyToolBox";
     box.style = `
@@ -83,22 +81,16 @@
             </label>
             <div id="loadingIndicator" style="display:none;margin-top:5px;color:gold;font-weight:bold;text-align:center;">⏳ جاري المعالجة...</div>
             <button id="calcBtn" style="margin-top:5px;background:#28a745;color:#fff;padding:5px;width:100%;border:none;border-radius:4px;">احسب</button>
-            <button id="downloadBtn" style="display:none;margin-top:5px;background:#007bff;color:#fff;padding:5px;width:100%;border:none;border-radius:4px;">📥 تحميل Excel</button>
+            <button id="downloadBtn" style="display:none;margin-top:5px;background:#007bff;color:#fff;padding:5px;width:100%;border:none;border-radius:4px;">📥 تحميل</button>
+            <button id="clearBtn" style="margin-top:5px;background:#dc3545;color:#fff;padding:5px;width:100%;border:none;border-radius:4px;">🗑️ مسح الإدخالات</button>
         </div>
     `;
     document.body.appendChild(box);
 
-    // ===== عناصر =====
-    const toolContent = document.getElementById('toolContent');
-    const logoSK = document.getElementById('logoSK');
-    const combineToggle = document.getElementById('combineToggle');
-    const loadingIndicator = document.getElementById('loadingIndicator');
-    const calcBtn = document.getElementById('calcBtn');
-    const downloadBtn = document.getElementById('downloadBtn');
-    const dragHandle = document.getElementById('dragHandle');
-    const toggleBtn = document.getElementById('toggleBtn');
+    const toggleBtn = document.getElementById("toggleBtn");
+    const toolContent = document.getElementById("toolContent");
+    const logoSK = document.getElementById("logoSK");
 
-    // ===== إظهار / إخفاء =====
     function updateVisibility(state) {
         if (state) {
             toolContent.style.display = "block";
@@ -106,6 +98,7 @@
             box.style.width = "450px";
             box.style.height = "auto";
             box.style.borderRadius = "8px";
+            box.style.padding = "10px";
             toggleBtn.innerText = "–";
         } else {
             toolContent.style.display = "none";
@@ -113,6 +106,7 @@
             box.style.width = "48px";
             box.style.height = "48px";
             box.style.borderRadius = "50%";
+            box.style.padding = "0";
             toggleBtn.innerText = "+";
         }
         localStorage.setItem("replyTool_visible", state);
@@ -123,81 +117,7 @@
         updateVisibility(!isVisible);
     };
 
-    combineToggle.onchange = () => {
-        localStorage.setItem("replyTool_combine", combineToggle.checked);
-    };
-
-    updateVisibility(savedVisible);
-
-    // ===== زر احسب =====
-    calcBtn.onclick = async () => {
-        loadingIndicator.style.display = "block";
-        downloadBtn.style.display = "none";
-
-        const rawLines = document.getElementById('idList').value.trim().split('\n').filter(Boolean);
-        localStorage.setItem("replyTool_ids", document.getElementById('idList').value);
-
-        const ids = rawLines.map(extractTopicId).filter(id => id);
-        const base = location.hostname.includes("kooora") ? "https://forum.kooora.com" : "https://www.startimes.com";
-        const combine = combineToggle.checked;
-
-        const workbook = XLSX.utils.book_new();
-        const allCombined = {};
-
-        for (const id of ids) {
-            const url = `${base}/f.aspx?svc=tstats&tstat=${id}&tstatl=n`;
-            const html = await fetchPage(url);
-            const doc = new DOMParser().parseFromString(html, 'text/html');
-            const tds = Array.from(doc.querySelectorAll('td.stats_p'));
-            const topicStats = {};
-
-            for (let i = 0; i < tds.length; i += 2) {
-                const nameEl = tds[i].querySelector('font');
-                const countEl = tds[i + 1]?.querySelector('a');
-                if (nameEl && countEl) {
-                    const name = nameEl.textContent.trim();
-                    const count = parseInt(countEl.textContent.trim());
-                    if (!isNaN(count)) {
-                        topicStats[name] = (topicStats[name] || 0) + count;
-                        allCombined[name] = (allCombined[name] || 0) + count;
-                    }
-                }
-            }
-
-            if (!combine) {
-                const sheet = XLSX.utils.json_to_sheet(
-                    Object.entries(topicStats).map(([name, count]) => ({ العضو: name, الردود: count }))
-                );
-                XLSX.utils.book_append_sheet(workbook, sheet, `موضوع ${id}`);
-            }
-        }
-
-        if (combine) {
-            const combinedSheet = XLSX.utils.json_to_sheet(
-                Object.entries(allCombined).map(([name, count]) => ({ العضو: name, الردود: count }))
-            );
-            XLSX.utils.book_append_sheet(workbook, combinedSheet, 'كل المواضيع');
-        }
-
-        const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'binary' });
-        const buf = new ArrayBuffer(wbout.length);
-        const view = new Uint8Array(buf);
-        for (let i = 0; i < wbout.length; i++) view[i] = wbout.charCodeAt(i) & 0xff;
-
-        const blob = new Blob([buf], { type: "application/octet-stream" });
-        const url = URL.createObjectURL(blob);
-
-        loadingIndicator.style.display = "none";
-        downloadBtn.style.display = "inline-block";
-        downloadBtn.onclick = () => {
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = "احصائيات_الردود.xlsx";
-            a.click();
-        };
-    };
-
-    // ===== التحريك =====
+    const dragHandle = document.getElementById("dragHandle");
     let isDragging = false, offsetX = 0, offsetY = 0;
 
     function startDrag(e) {
@@ -227,7 +147,31 @@
         if (toolContent.style.display === 'none') startDrag(e);
     });
 
-    // ===== أدوات مساعدة =====
+    const idInput = document.getElementById('idList');
+    idInput.addEventListener("input", () => localStorage.setItem("replyTool_ids", idInput.value));
+
+    const combineToggle = document.getElementById("combineToggle");
+    combineToggle.onchange = () => localStorage.setItem("replyTool_combine", combineToggle.checked);
+
+    updateVisibility(savedVisible);
+
+    const clearBtn = document.getElementById('clearBtn');
+    clearBtn.onclick = () => {
+        localStorage.removeItem("replyTool_ids");
+        idInput.value = "";
+    };
+
+    const loadingIndicator = document.getElementById("loadingIndicator");
+    const calcBtn = document.getElementById("calcBtn");
+    const downloadBtn = document.getElementById("downloadBtn");
+
+    function extractTopicId(line) {
+        const match = line.match(/t=(\d+)/i);
+        if (match) return match[1];
+        if (/^\d+$/.test(line)) return line;
+        return null;
+    }
+
     function fetchPage(url) {
         return new Promise((resolve, reject) => {
             GM_xmlhttpRequest({
@@ -239,16 +183,103 @@
         });
     }
 
-    function extractTopicId(line) {
-        try {
-            if (/^\d+$/.test(line)) return line;
-            const tMatch = line.match(/t=(\d+)/i);
-            if (tMatch) return tMatch[1];
-            const urlMatch = line.match(/f\.aspx\?t=(\d+)/i);
-            if (urlMatch) return urlMatch[1];
-            return null;
-        } catch {
-            return null;
+    calcBtn.onclick = async () => {
+        loadingIndicator.style.display = "block";
+        downloadBtn.style.display = "none";
+
+        const rawLines = idInput.value.trim().split('\n').filter(Boolean);
+        const ids = rawLines.map(extractTopicId).filter(Boolean);
+
+        const base = location.hostname.includes("kooora") ? "https://forum.kooora.com" : "https://www.startimes.com";
+        const combine = combineToggle.checked;
+        const workbook = XLSX.utils.book_new();
+
+        if (!combine) {
+            for (const id of ids) {
+                loadingIndicator.innerText = `⏳ جاري المعالجة... (الموضوع: ${id})`;
+                const url = `${base}/f.aspx?svc=tstats&tstat=${id}&tstatl=n`;
+                const html = await fetchPage(url);
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                const tds = Array.from(doc.querySelectorAll('td.stats_p'));
+                const topicStats = {};
+                for (let i = 0; i < tds.length; i += 2) {
+                    const nameEl = tds[i].querySelector('font');
+                    const linkEl = tds[i].querySelector('a');
+                    const countEl = tds[i + 1]?.querySelector('a');
+                    if (nameEl && countEl && linkEl) {
+                        const name = nameEl.textContent.trim();
+                        const url = linkEl.href;
+                        const count = parseInt(countEl.textContent.trim());
+                        if (!isNaN(count)) {
+                            topicStats[name] = topicStats[name] || { count: 0, url };
+                            topicStats[name].count += count;
+                        }
+                    }
+                }
+                const rows = Object.entries(topicStats)
+                    .map(([name, data]) => ({ العضو: { f: `HYPERLINK("${data.url}", "${name}")` }, الردود: data.count }))
+                    .sort((a, b) => b.الردود - a.الردود);
+                const sheet = XLSX.utils.json_to_sheet(rows);
+                XLSX.utils.book_append_sheet(workbook, sheet, `موضوع ${id}`);
+            }
+        } else {
+            const allCombined = {};
+            const statsPerMember = {};
+            for (const id of ids) {
+                loadingIndicator.innerText = `⏳ جاري المعالجة... (الموضوع: ${id})`;
+                const url = `${base}/f.aspx?svc=tstats&tstat=${id}&tstatl=n`;
+                const html = await fetchPage(url);
+                const doc = new DOMParser().parseFromString(html, 'text/html');
+                const tds = Array.from(doc.querySelectorAll('td.stats_p'));
+                for (let i = 0; i < tds.length; i += 2) {
+                    const nameEl = tds[i].querySelector('font');
+                    const linkEl = tds[i].querySelector('a');
+                    const countEl = tds[i + 1]?.querySelector('a');
+                    if (nameEl && countEl && linkEl) {
+                        const name = nameEl.textContent.trim();
+                        const url = linkEl.href;
+                        const count = parseInt(countEl.textContent.trim());
+                        if (!isNaN(count)) {
+                            if (!allCombined[name]) allCombined[name] = { count: 0, url };
+                            allCombined[name].count += count;
+
+                            if (!statsPerMember[name]) statsPerMember[name] = { topics: 0, total: 0, url };
+                            statsPerMember[name].topics += 1;
+                            statsPerMember[name].total += count;
+                        }
+                    }
+                }
+            }
+
+            const sorted = Object.entries(statsPerMember)
+            .map(([name, data]) => ({
+                العضو: { f: `HYPERLINK("${data.url}", "${name}")` },
+                الردود: data.total,
+                "عدد المواضيع": data.topics,
+                "المتوسط": +(data.total / data.topics).toFixed(2),
+                "المتوسط على كل المواضيع": +(data.total / ids.length).toFixed(2)
+            }))
+                .sort((a, b) => b.الردود - a.الردود);
+
+            const sheet = XLSX.utils.json_to_sheet(sorted);
+            XLSX.utils.book_append_sheet(workbook, sheet, 'كل المواضيع');
         }
-    }
+
+        const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'binary' });
+        const buf = new ArrayBuffer(wbout.length);
+        const view = new Uint8Array(buf);
+        for (let i = 0; i < wbout.length; i++) view[i] = wbout.charCodeAt(i) & 0xff;
+
+        const blob = new Blob([buf], { type: "application/octet-stream" });
+        const url = URL.createObjectURL(blob);
+
+        loadingIndicator.style.display = "none";
+        downloadBtn.style.display = "inline-block";
+        downloadBtn.onclick = () => {
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "احصائيات_الردود.xlsx";
+            a.click();
+        };
+    };
 })();
